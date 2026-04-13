@@ -118,7 +118,7 @@ const Home = () => {
       {/* ── Page header ── */}
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-bold font-display">Market Overview</h2>
-        <span className="font-mono text-xs text-muted-foreground">
+        <span className="hidden font-mono text-xs md:block text-muted-foreground">
           Use ↻ in the header to refresh
         </span>
       </div>
@@ -261,9 +261,6 @@ const Home = () => {
                       </span>
                     </div>
                     <span
-                      // className={`flex items-center gap-0.5 text-xs font-mono ${
-                      //   m.change24h >= 0 ? "text-positive" : "text-destructive"
-                      // } ${isTrending ? "mr-10" : ""}`}
                       className={`flex items-center gap-0.5 text-xs font-mono ${
                         m.change24h >= 0 ? "text-positive" : "text-destructive"
                       }`}
