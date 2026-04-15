@@ -318,12 +318,7 @@ Browser
 
 ---
 
-## License
-
-MIT — see [LICENSE](LICENSE)
-
----
 
 ## Built with ♥ for the Pacifica Hackathon
 
-[pacifica.fi](https://pacifica.fi) · [elfa.ai](https://elfa.ai) · [privy.io](https://privy.io)
+[pacifica.fi](https://pacifica.fi) · [elfa.ai](https://elfa.ai) 
