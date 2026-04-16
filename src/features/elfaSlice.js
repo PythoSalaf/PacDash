@@ -1,9 +1,33 @@
 import { createApi, fetchBaseQuery } from "@reduxjs/toolkit/query/react";
 
+/**
+ * Custom base query that routes correctly in both environments:
+ *
+ * DEV  → /elfa-api/aggregations/trending-tokens?timeWindow=24h
+ *         (Vite proxy rewrites to api.elfa.ai/v2 and injects API key)
+ *
+ * PROD → /api/elfa?path=/aggregations/trending-tokens&timeWindow=24h
+ *         (Vercel serverless function at api/elfa.js injects ELFA_API_KEY)
+ */
+const elfaBaseQuery = fetchBaseQuery({
+  baseUrl: "/",
+  prepareHeaders: (headers) => headers,
+});
+
+const elfaQuery = (path) => {
+  if (import.meta.env.DEV) {
+    // Vite proxy: /elfa-api/* → api.elfa.ai/v2/*
+    return `elfa-api${path}`;
+  }
+  // Vercel serverless: /api/elfa?path=/aggregations/...&rest=params
+  const [pathname, qs] = path.split("?");
+  const base = `api/elfa?path=${encodeURIComponent(pathname)}`;
+  return qs ? `${base}&${qs}` : base;
+};
+
 export const elfaApi = createApi({
   reducerPath: "elfaApi",
-  // Requests go to /elfa-api/* on localhost — Vite proxy rewrites to api.elfa.ai/v2/*
-  baseQuery: fetchBaseQuery({ baseUrl: "/elfa-api" }),
+  baseQuery: elfaBaseQuery,
   tagTypes: [
     "TrendingTokens",
     "TokenNews",
@@ -12,21 +36,21 @@ export const elfaApi = createApi({
     "EventSummary",
   ],
   endpoints: (builder) => ({
-    // ✅ FREE — trending tokens by mention count
-    // Response: { data: { data: [{token, current_count, previous_count, change_percent}] } }
     getTrendingTokens: builder.query({
       query: ({ timeWindow = "24h", pageSize = 20 } = {}) =>
-        `/aggregations/trending-tokens?timeWindow=${timeWindow}&pageSize=${pageSize}`,
+        elfaQuery(
+          `/aggregations/trending-tokens?timeWindow=${timeWindow}&pageSize=${pageSize}`,
+        ),
       providesTags: ["TrendingTokens"],
       keepUnusedDataFor: 300,
       transformResponse: (res) => res?.data?.data ?? [],
     }),
 
-    // ✅ FREE — news/articles mentioning a token (replaces narratives which is Grow tier)
-    // Response: { data: [{title, url, source, publishedAt, ...}] }
     getTokenNews: builder.query({
       query: ({ token, limit = 8 }) =>
-        `/data/token-news?token=${encodeURIComponent(token)}&limit=${limit}`,
+        elfaQuery(
+          `/data/token-news?token=${encodeURIComponent(token)}&limit=${limit}`,
+        ),
       providesTags: (_, __, { token }) => [{ type: "TokenNews", id: token }],
       keepUnusedDataFor: 300,
       transformResponse: (res) => {
@@ -38,11 +62,11 @@ export const elfaApi = createApi({
       },
     }),
 
-    // ✅ FREE — top social mentions for a ticker (for Social Buzz panel on market click)
-    // Response: { data: [{tweetId, link, likeCount, repostCount, viewCount, account:{username}}] }
     getTopMentions: builder.query({
       query: ({ ticker, timeWindow = "24h", limit = 5 }) =>
-        `/data/top-mentions?ticker=${encodeURIComponent(ticker)}&timeWindow=${timeWindow}&limit=${limit}`,
+        elfaQuery(
+          `/data/top-mentions?ticker=${encodeURIComponent(ticker)}&timeWindow=${timeWindow}&limit=${limit}`,
+        ),
       providesTags: (_, __, { ticker }) => [
         { type: "TopMentions", id: ticker },
       ],
@@ -50,25 +74,25 @@ export const elfaApi = createApi({
       transformResponse: (res) => res?.data ?? [],
     }),
 
-    // ✅ FREE — contract addresses trending on Twitter (for Whale Feed confluence)
-    // Response: { data: { data: [{contractAddress, mentionCount, ...}] } }
     getTrendingCAs: builder.query({
       query: ({ timeWindow = "24h", pageSize = 10 } = {}) =>
-        `/aggregations/trending-cas/twitter?timeWindow=${timeWindow}&pageSize=${pageSize}`,
+        elfaQuery(
+          `/aggregations/trending-cas/twitter?timeWindow=${timeWindow}&pageSize=${pageSize}`,
+        ),
       providesTags: ["TrendingCAs"],
       keepUnusedDataFor: 300,
       transformResponse: (res) => res?.data?.data ?? res?.data ?? [],
     }),
 
-    // ✅ FREE (5 credits) — AI-written summary of what's happening with a token socially
-    // Response: { data: { summary: "..." } }
     getEventSummary: builder.query({
       query: ({ keywords, timeWindow = "24h" }) =>
-        `/data/event-summary?keywords=${encodeURIComponent(keywords)}&timeWindow=${timeWindow}`,
+        elfaQuery(
+          `/data/event-summary?keywords=${encodeURIComponent(keywords)}&timeWindow=${timeWindow}`,
+        ),
       providesTags: (_, __, { keywords }) => [
         { type: "EventSummary", id: keywords },
       ],
-      keepUnusedDataFor: 600, // cache 10 min — costs 5 credits each call
+      keepUnusedDataFor: 600,
       transformResponse: (res) => {
         const d = res?.data;
         if (typeof d === "string") return d;
